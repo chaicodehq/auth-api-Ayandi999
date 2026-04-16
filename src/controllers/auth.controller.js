@@ -13,7 +13,18 @@ import { signToken } from '../utils/jwt.js';
  */
 export async function register(req, res, next) {
   try {
-    // Your code here
+    const { name, email, password } = req.body;
+    const alredyExist = await User.exists({ email })
+    if (alredyExist) return res.status(409).json({ error: { message: "Email already exists" } });
+    const newUser = await User.create(
+      {
+        name,
+        password,
+        email
+      }
+    );
+    newUser.password = undefined;
+    if (newUser) res.status(201).json({ user: newUser });
   } catch (error) {
     next(error);
   }
@@ -33,6 +44,13 @@ export async function register(req, res, next) {
 export async function login(req, res, next) {
   try {
     // Your code here
+    const { email, password } = req.body;
+    const [user] = await User.find({ email }).select("+password");
+    if (!user) return res.status(401).json({ error: { message: "Invalid credentials" } });
+    if (!await bcrypt.compare(password, user.password)) return res.status(401).json({ error: { message: "Invalid credentials" } });
+    const token = signToken({ userId: user._id, email: user.email, role: user.role });
+    user.password = undefined;
+    return res.status(200).json({ token, user });
   } catch (error) {
     next(error);
   }
@@ -47,6 +65,7 @@ export async function login(req, res, next) {
 export async function me(req, res, next) {
   try {
     // Your code here
+    return res.status(200).json({ user: req.user });
   } catch (error) {
     next(error);
   }
